@@ -22,7 +22,13 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+    "context"
 
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+    sdktrace "go.opentelemetry.io/otel/sdk/trace"
+    semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+    "go.opentelemetry.io/otel/sdk/resource"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
@@ -41,6 +47,7 @@ type Config struct {
 	Insecure bool
 	UseHTTP  bool
 	Headers  HeaderValue
+    Exp      *otlptrace.Exporter
 }
 
 type HeaderValue map[string]string
@@ -82,6 +89,26 @@ func (c *Config) Flags(fs *flag.FlagSet) {
 
 // Run executes the test scenario.
 func Run(c *Config, logger *zap.Logger) error {
+    ssp := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
+    ssp2 := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
+    defer ssp.Shutdown(context.Background())
+    defer ssp2.Shutdown(context.Background())
+
+    tracerProvider := sdktrace.NewTracerProvider(
+        sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String("test_servicename"))),
+    )
+    tracerProvider2 := sdktrace.NewTracerProvider(
+        sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String("new_resource"))),
+    )
+
+    tracerProvider.RegisterSpanProcessor(ssp)
+    tracerProvider2.RegisterSpanProcessor(ssp2)
+    otel.SetTracerProvider(tracerProvider)
+    var tracerProviders []*sdktrace.TracerProvider
+    tracerProviders = append(tracerProviders, tracerProvider)
+    tracerProviders = append(tracerProviders, tracerProvider2)
+
+
 	if c.TotalDuration > 0 {
 		c.NumTraces = 0
 	} else if c.NumTraces <= 0 {
@@ -108,6 +135,7 @@ func Run(c *Config, logger *zap.Logger) error {
 			running:          &running,
 			wg:               &wg,
 			logger:           logger.With(zap.Int("worker", i)),
+            tracerProviders:  tracerProviders,
 		}
 
 		go w.simulateTraces()

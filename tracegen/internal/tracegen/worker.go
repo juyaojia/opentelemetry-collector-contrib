@@ -24,6 +24,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
+    sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
@@ -38,6 +39,7 @@ type worker struct {
 	limitPerSecond   rate.Limit      // how many spans per second to generate
 	wg               *sync.WaitGroup // notify when done
 	logger           *zap.Logger
+    tracerProviders  []*sdktrace.TracerProvider
 }
 
 const (
@@ -47,6 +49,7 @@ const (
 )
 
 func (w worker) simulateTraces() {
+    otel.SetTracerProvider(w.tracerProviders[1])
 	tracer := otel.Tracer("tracegen")
 	limiter := rate.NewLimiter(w.limitPerSecond, 1)
 	var i int
@@ -67,7 +70,10 @@ func (w worker) simulateTraces() {
 			childCtx = otel.GetTextMapPropagator().Extract(childCtx, header)
 		}
 
-		_, child := tracer.Start(childCtx, "okey-dokey", trace.WithAttributes(
+        otel.SetTracerProvider(w.tracerProviders[0])
+	    tracerNew := otel.Tracer("new")
+
+		_, child := tracerNew.Start(childCtx, "okey-dokey", trace.WithAttributes(
 			attribute.String("span.kind", "server"),
 			semconv.NetPeerIPKey.String(fakeIP),
 			semconv.PeerServiceKey.String("tracegen-client"),

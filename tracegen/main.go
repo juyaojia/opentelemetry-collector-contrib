@@ -19,16 +19,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"time"
+	//"time"
 
 	grpcZap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"go.opentelemetry.io/otel"
+	//"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	//"go.opentelemetry.io/otel/sdk/resource"
+	//sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	//semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -91,16 +91,7 @@ func main() {
 		}
 	}()
 
-	ssp := sdktrace.NewBatchSpanProcessor(exp, sdktrace.WithBatchTimeout(time.Second))
-	defer ssp.Shutdown(context.Background())
-
-	tracerProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String(cfg.ServiceName))),
-	)
-
-	tracerProvider.RegisterSpanProcessor(ssp)
-	otel.SetTracerProvider(tracerProvider)
-
+    cfg.Exp = exp
 	if err := tracegen.Run(cfg, logger); err != nil {
 		logger.Error("failed to stop the exporter", zap.Error(err))
 	}

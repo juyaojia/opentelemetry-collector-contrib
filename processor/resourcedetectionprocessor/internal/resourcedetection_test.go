@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
@@ -99,7 +100,7 @@ func TestDetect(t *testing.T) {
 			p, err := f.CreateResourceProvider(componenttest.NewNopProcessorCreateSettings(), time.Second, &mockDetectorConfig{}, mockDetectorTypes...)
 			require.NoError(t, err)
 
-			got, _, err := p.Get(context.Background())
+			got, _, err := p.Get(context.Background(), http.DefaultClient)
 			require.NoError(t, err)
 
 			tt.expectedResource.Attributes().Sort()
@@ -135,7 +136,7 @@ func TestDetectResource_Error(t *testing.T) {
 	md2.On("Detect").Return(pdata.NewResource(), errors.New("err1"))
 
 	p := NewResourceProvider(zap.NewNop(), time.Second, md1, md2)
-	_, _, err := p.Get(context.Background())
+	_, _, err := p.Get(context.Background(), http.DefaultClient)
 	require.NoError(t, err)
 }
 
@@ -212,7 +213,7 @@ func TestDetectResource_Parallel(t *testing.T) {
 	for i := 0; i < iterations; i++ {
 		go func() {
 			defer wg.Done()
-			detected, _, err := p.Get(context.Background())
+			detected, _, err := p.Get(context.Background(), http.DefaultClient)
 			require.NoError(t, err)
 			detected.Attributes().Sort()
 			assert.Equal(t, expectedResource, detected)
@@ -253,12 +254,12 @@ func TestAttributesToMap(t *testing.T) {
 	attr.InsertInt("int", 5)
 	attr.InsertDouble("double", 5.0)
 	attr.InsertBool("bool", true)
-	avm := pdata.NewAttributeValueMap()
+	avm := pdata.NewValueMap()
 	innerAttr := avm.MapVal()
 	innerAttr.InsertString("inner", "val")
 	attr.Insert("map", avm)
 
-	ava := pdata.NewAttributeValueArray()
+	ava := pdata.NewValueArray()
 	arrayAttr := ava.SliceVal()
 	arrayAttr.EnsureCapacity(2)
 	arrayAttr.AppendEmpty().SetStringVal("inner")
@@ -269,8 +270,9 @@ func TestAttributesToMap(t *testing.T) {
 }
 
 func TestGOOSToOsType(t *testing.T) {
-	assert.Equal(t, "DARWIN", GOOSToOSType("darwin"))
-	assert.Equal(t, "LINUX", GOOSToOSType("linux"))
-	assert.Equal(t, "WINDOWS", GOOSToOSType("windows"))
-	assert.Equal(t, "DRAGONFLYBSD", GOOSToOSType("dragonfly"))
+	assert.Equal(t, "darwin", GOOSToOSType("darwin"))
+	assert.Equal(t, "linux", GOOSToOSType("linux"))
+	assert.Equal(t, "windows", GOOSToOSType("windows"))
+	assert.Equal(t, "dragonflybsd", GOOSToOSType("dragonfly"))
+	assert.Equal(t, "z_os", GOOSToOSType("zos"))
 }

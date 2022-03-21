@@ -21,7 +21,6 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/consumer"
-	"go.opentelemetry.io/collector/receiver/receiverhelper"
 )
 
 // Factory for awscontainerinsightreceiver
@@ -40,24 +39,28 @@ const (
 
 	// Don't use pod full name by default (as the full names contain suffix with random characters)
 	defaultPrefFullPodName = false
+
+	// Don't tag pod full name by default
+	defaultAddFullPodNameMetricLabel = false
 )
 
 // NewFactory creates a factory for AWS container insight receiver
 func NewFactory() component.ReceiverFactory {
-	return receiverhelper.NewFactory(
+	return component.NewReceiverFactory(
 		typeStr,
 		createDefaultConfig,
-		receiverhelper.WithMetrics(createMetricsReceiver))
+		component.WithMetricsReceiver(createMetricsReceiver))
 }
 
 // createDefaultConfig returns a default config for the receiver.
 func createDefaultConfig() config.Receiver {
 	return &Config{
-		ReceiverSettings:      config.NewReceiverSettings(config.NewComponentID(typeStr)),
-		CollectionInterval:    defaultCollectionInterval,
-		ContainerOrchestrator: defaultContainerOrchestrator,
-		TagService:            defaultTagService,
-		PrefFullPodName:       defaultPrefFullPodName,
+		ReceiverSettings:          config.NewReceiverSettings(config.NewComponentID(typeStr)),
+		CollectionInterval:        defaultCollectionInterval,
+		ContainerOrchestrator:     defaultContainerOrchestrator,
+		TagService:                defaultTagService,
+		PrefFullPodName:           defaultPrefFullPodName,
+		AddFullPodNameMetricLabel: defaultAddFullPodNameMetricLabel,
 	}
 }
 

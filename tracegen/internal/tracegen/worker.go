@@ -23,7 +23,6 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/propagation"
     sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
@@ -53,10 +52,24 @@ func (w worker) setUpTracers() {
 
 }
 
+func (w worker) addChild(parentCtx context.Context, tracer trace.Tracer) context.Context {
+    childCtx, child := tracer.Start(parentCtx, "okey-dokey", trace.WithAttributes(
+        attribute.String("span.kind", "server"),
+        semconv.NetPeerIPKey.String(fakeIP),
+        semconv.PeerServiceKey.String("tracegen-client"),
+    ))
+    opt := trace.WithTimestamp(time.Now().Add(fakeSpanDuration))
+    child.End(opt)
+    return childCtx
+}
+
 func (w worker) simulateTraces() {
     // set up all tracers
     otel.SetTracerProvider(w.tracerProviders[1])
 	tracer := otel.Tracer("tracegen")
+    otel.SetTracerProvider(w.tracerProviders[0])
+    tracerNew := otel.Tracer("new")
+
 	limiter := rate.NewLimiter(w.limitPerSecond, 1)
 	var i int
 	for atomic.LoadUint32(w.running) == 1 {
@@ -66,46 +79,12 @@ func (w worker) simulateTraces() {
 			semconv.PeerServiceKey.String("tracegen-server"),
 		))
 
-		childCtx := ctx
-		if w.propagateContext {
-			header := propagation.HeaderCarrier{}
-			// simulates going remote
-			otel.GetTextMapPropagator().Inject(childCtx, header)
-
-			// simulates getting a request from a client
-			childCtx = otel.GetTextMapPropagator().Extract(childCtx, header)
-		}
-
-        otel.SetTracerProvider(w.tracerProviders[0])
-	    tracerNew := otel.Tracer("new")
-
-		grandchildCtx, child := tracerNew.Start(childCtx, "okey-dokey", trace.WithAttributes(
-			attribute.String("span.kind", "server"),
-			semconv.NetPeerIPKey.String(fakeIP),
-			semconv.PeerServiceKey.String("tracegen-client"),
-		))
-
-		_, grandchild := tracerNew.Start(grandchildCtx, "iamgrandchild", trace.WithAttributes(
-			attribute.String("span.kind", "server"),
-			semconv.NetPeerIPKey.String(fakeIP),
-			semconv.PeerServiceKey.String("tracegen-client"),
-		))
-		firstOpt := trace.WithTimestamp(time.Now().Add(fakeSpanDuration))
-        grandchild.End(firstOpt)
-
-        otel.SetTracerProvider(w.tracerProviders[1])
-
-		_, child2 := tracer.Start(childCtx, "part3", trace.WithAttributes(
-			attribute.String("span.kind", "server"),
-			semconv.NetPeerIPKey.String(fakeIP),
-			semconv.PeerServiceKey.String("tracegen-client"),
-		))
-		opt := trace.WithTimestamp(time.Now().Add(fakeSpanDuration))
+        childCtx := w.addChild(ctx, tracerNew)
+        _ = w.addChild(childCtx, tracerNew)
 
 		limiter.Wait(context.Background())
 
-		child.End(opt)
-		child2.End(opt)
+        opt := trace.WithTimestamp(time.Now().Add(fakeSpanDuration))
 		sp.End(opt)
 
 		i++

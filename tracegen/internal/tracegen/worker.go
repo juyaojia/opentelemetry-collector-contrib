@@ -81,9 +81,23 @@ func (w worker) simulateTraces() {
 			semconv.PeerServiceKey.String("tracegen-server"),
 		))
 
-        childCtx := w.addChild(ctx, tracers[1])
-        _ = w.addChild(childCtx, tracers[1])
+        //childCtx := w.addChild(ctx, tracers[1])
+        //_ = w.addChild(childCtx, tracers[2])
 
+        child1Ctx := w.addChild(ctx, tracers[1])
+        w.addChild(ctx, tracers[1])
+        w.addChild(child1Ctx, tracers[2])
+        w.addChild(child1Ctx, tracers[3])
+        w.addChild(child1Ctx, tracers[4])
+        grandchild4Ctx := w.addChild(child1Ctx, tracers[5])
+        w.addChild(grandchild4Ctx, tracers[6])
+        w.addChild(grandchild4Ctx, tracers[7])
+        w.addChild(grandchild4Ctx, tracers[8])
+        w.addChild(grandchild4Ctx, tracers[9])
+        w.addChild(grandchild4Ctx, tracers[10])
+        /*
+        w.addChild(grandchild4Ctx, tracers[11])
+        */
 		limiter.Wait(context.Background())
 
         opt := trace.WithTimestamp(time.Now().Add(fakeSpanDuration))

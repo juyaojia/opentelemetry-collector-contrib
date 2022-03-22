@@ -89,26 +89,42 @@ func (c *Config) Flags(fs *flag.FlagSet) {
 
 // Run executes the test scenario.
 func Run(c *Config, logger *zap.Logger) error {
+    num := 2
+    tracerProviders := make([]*sdktrace.TracerProvider, 0, num)
+    for i:=0; i<num; i++ {
+        ssp := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
+        defer ssp.Shutdown(context.Background())
+        str := "servicename"
+        if i == 1 {
+            str = "new_resource"
+        }
+        tracerProvider := sdktrace.NewTracerProvider(
+            sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String(str))),
+        )
+        tracerProvider.RegisterSpanProcessor(ssp)
+        tracerProviders = append(tracerProviders, tracerProvider)
+    }
+    otel.SetTracerProvider(tracerProviders[0])
+    //i := 0
+    /*
     ssp := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
-    ssp2 := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
     defer ssp.Shutdown(context.Background())
-    defer ssp2.Shutdown(context.Background())
-
     tracerProvider := sdktrace.NewTracerProvider(
-        sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String("test_servicename"))),
+        sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String("testservice"))),
     )
+    tracerProvider.RegisterSpanProcessor(ssp)
+    tracerProviders = append(tracerProviders, tracerProvider)
+
+    ssp2 := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
+    defer ssp2.Shutdown(context.Background())
     tracerProvider2 := sdktrace.NewTracerProvider(
         sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String("new_resource"))),
     )
-
-    tracerProvider.RegisterSpanProcessor(ssp)
     tracerProvider2.RegisterSpanProcessor(ssp2)
+
     otel.SetTracerProvider(tracerProvider)
-    var tracerProviders []*sdktrace.TracerProvider
-    tracerProviders = append(tracerProviders, tracerProvider)
     tracerProviders = append(tracerProviders, tracerProvider2)
-
-
+    */
 	if c.TotalDuration > 0 {
 		c.NumTraces = 0
 	} else if c.NumTraces <= 0 {

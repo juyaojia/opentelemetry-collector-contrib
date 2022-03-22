@@ -47,9 +47,15 @@ const (
 	fakeSpanDuration = 123 * time.Microsecond
 )
 
-func (w worker) setUpTracers() {
+func (w worker) setUpTracers() []trace.Tracer {
+    toReturn := make([]trace.Tracer, 0, len(w.tracerProviders))
 
-
+    for i := 0; i< len(w.tracerProviders); i++ {
+        otel.SetTracerProvider(w.tracerProviders[i])
+        tracer := otel.Tracer("tracegen"+string(i))
+        toReturn = append(toReturn, tracer)
+    }
+    return toReturn
 }
 
 func (w worker) addChild(parentCtx context.Context, tracer trace.Tracer) context.Context {
@@ -65,22 +71,18 @@ func (w worker) addChild(parentCtx context.Context, tracer trace.Tracer) context
 
 func (w worker) simulateTraces() {
     // set up all tracers
-    otel.SetTracerProvider(w.tracerProviders[1])
-	tracer := otel.Tracer("tracegen")
-    otel.SetTracerProvider(w.tracerProviders[0])
-    tracerNew := otel.Tracer("new")
-
+    tracers := w.setUpTracers()
 	limiter := rate.NewLimiter(w.limitPerSecond, 1)
 	var i int
 	for atomic.LoadUint32(w.running) == 1 {
-		ctx, sp := tracer.Start(context.Background(), "lets-go", trace.WithAttributes(
+		ctx, sp := tracers[0].Start(context.Background(), "lets-go", trace.WithAttributes(
 			attribute.String("span.kind", "client"), // is there a semantic convention for this?
 			semconv.NetPeerIPKey.String(fakeIP),
 			semconv.PeerServiceKey.String("tracegen-server"),
 		))
 
-        childCtx := w.addChild(ctx, tracerNew)
-        _ = w.addChild(childCtx, tracerNew)
+        childCtx := w.addChild(ctx, tracers[1])
+        _ = w.addChild(childCtx, tracers[1])
 
 		limiter.Wait(context.Background())
 

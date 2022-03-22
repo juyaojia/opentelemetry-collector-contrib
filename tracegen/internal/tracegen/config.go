@@ -89,42 +89,22 @@ func (c *Config) Flags(fs *flag.FlagSet) {
 
 // Run executes the test scenario.
 func Run(c *Config, logger *zap.Logger) error {
-    num := 2
+    // TODO: make this not hard-coded
+    services := [12]string{"frontend", "adservice", "cartservice", "checkoutservice", "currencyservice", "emailservice",
+                          "paymentservice", "productcatalogservice", "recommendationservice", "rediscart", "shippingservice"}
+    num := len(services)
     tracerProviders := make([]*sdktrace.TracerProvider, 0, num)
     for i:=0; i<num; i++ {
         ssp := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
         defer ssp.Shutdown(context.Background())
-        str := "servicename"
-        if i == 1 {
-            str = "new_resource"
-        }
         tracerProvider := sdktrace.NewTracerProvider(
-            sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String(str))),
+            sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String(services[i]))),
         )
         tracerProvider.RegisterSpanProcessor(ssp)
         tracerProviders = append(tracerProviders, tracerProvider)
     }
     otel.SetTracerProvider(tracerProviders[0])
-    //i := 0
-    /*
-    ssp := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
-    defer ssp.Shutdown(context.Background())
-    tracerProvider := sdktrace.NewTracerProvider(
-        sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String("testservice"))),
-    )
-    tracerProvider.RegisterSpanProcessor(ssp)
-    tracerProviders = append(tracerProviders, tracerProvider)
 
-    ssp2 := sdktrace.NewBatchSpanProcessor(c.Exp, sdktrace.WithBatchTimeout(time.Second))
-    defer ssp2.Shutdown(context.Background())
-    tracerProvider2 := sdktrace.NewTracerProvider(
-        sdktrace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String("new_resource"))),
-    )
-    tracerProvider2.RegisterSpanProcessor(ssp2)
-
-    otel.SetTracerProvider(tracerProvider)
-    tracerProviders = append(tracerProviders, tracerProvider2)
-    */
 	if c.TotalDuration > 0 {
 		c.NumTraces = 0
 	} else if c.NumTraces <= 0 {

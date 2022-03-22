@@ -19,16 +19,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	//"time"
 
 	grpcZap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	//"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	//"go.opentelemetry.io/otel/sdk/resource"
-	//sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	//semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 

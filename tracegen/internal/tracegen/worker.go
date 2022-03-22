@@ -48,7 +48,13 @@ const (
 	fakeSpanDuration = 123 * time.Microsecond
 )
 
+func (w worker) setUpTracers() {
+
+
+}
+
 func (w worker) simulateTraces() {
+    // set up all tracers
     otel.SetTracerProvider(w.tracerProviders[1])
 	tracer := otel.Tracer("tracegen")
 	limiter := rate.NewLimiter(w.limitPerSecond, 1)
@@ -73,16 +79,33 @@ func (w worker) simulateTraces() {
         otel.SetTracerProvider(w.tracerProviders[0])
 	    tracerNew := otel.Tracer("new")
 
-		_, child := tracerNew.Start(childCtx, "okey-dokey", trace.WithAttributes(
+		grandchildCtx, child := tracerNew.Start(childCtx, "okey-dokey", trace.WithAttributes(
 			attribute.String("span.kind", "server"),
 			semconv.NetPeerIPKey.String(fakeIP),
 			semconv.PeerServiceKey.String("tracegen-client"),
 		))
 
+		_, grandchild := tracerNew.Start(grandchildCtx, "iamgrandchild", trace.WithAttributes(
+			attribute.String("span.kind", "server"),
+			semconv.NetPeerIPKey.String(fakeIP),
+			semconv.PeerServiceKey.String("tracegen-client"),
+		))
+		firstOpt := trace.WithTimestamp(time.Now().Add(fakeSpanDuration))
+        grandchild.End(firstOpt)
+
+        otel.SetTracerProvider(w.tracerProviders[1])
+
+		_, child2 := tracer.Start(childCtx, "part3", trace.WithAttributes(
+			attribute.String("span.kind", "server"),
+			semconv.NetPeerIPKey.String(fakeIP),
+			semconv.PeerServiceKey.String("tracegen-client"),
+		))
+		opt := trace.WithTimestamp(time.Now().Add(fakeSpanDuration))
+
 		limiter.Wait(context.Background())
 
-		opt := trace.WithTimestamp(time.Now().Add(fakeSpanDuration))
 		child.End(opt)
+		child2.End(opt)
 		sp.End(opt)
 
 		i++
